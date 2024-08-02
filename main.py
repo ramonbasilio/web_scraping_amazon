@@ -3,15 +3,18 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
-
-
+from tqdm import tqdm
 import time
 import pandas as pd
 from datetime import datetime
 
+print('')
+print(' ------- Chupacabra 1.0 - By Ramon Basilio  ------- ')
+print('')
+url_concorrente_1 = input('Insira o link/url do vendedor Amazon: ')
+print('')
+print('Iniciando...')
+print('Abrirá uma pagina do Chrome. Não se preocupe. Está tudo sob controle. Confie em mim!')
 
 
 def tamanho_iteracao(texto):
@@ -49,26 +52,38 @@ servico = Service(ChromeDriverManager().install())
 drive = webdriver.Chrome(service=servico)
 
 url_inicial = 'https://www.amazon.com.br/'
-url_concorrente_1 = 'https://www.amazon.com.br/s?me=A2I3NDH4PQ94GD&marketplaceID=A2Q3Y263D00KWC' #Karina Iamada Multimarcas
+#url_concorrente_1 = 'https://www.amazon.com.br/sp?ie=UTF8&seller=A3GR3NYIKQSTKJ&isAmazonFulfilled=0&asin=B08X6BBZS7&ref_=olp_merch_name_2' 
+nome_loja = ''
 
-drive.get(url=url_inicial)
-time.sleep(1) 
-drive.get(url=url_concorrente_1) 
-time.sleep(1)
-total_itens_por_pagina = drive.find_element(By.XPATH, '//*[@id="search"]/span[2]/div/h1/div/div[1]/div/div/span').text
-time.sleep(1)
+
+
+for i in range(5):
+    try:
+        drive.get(url=url_concorrente_1) 
+        time.sleep(2)
+        nome_loja = drive.find_element(By.XPATH, '//*[@id="seller-name"]').text
+        time.sleep(1)
+        drive.find_element(By.XPATH,'//*[@id="seller-info-storefront-link"]/span/a').click()
+        total_itens_por_pagina = drive.find_element(By.XPATH, '//*[@id="search"]/span[2]/div/h1/div/div[1]/div/div/span').text
+        time.sleep(1)
+        break
+    except:
+        print(f'tentativa: {i+1}... calma pequeno gafanhoto...')
+
 tamanho_iteracao = tamanho_iteracao(total_itens_por_pagina)
 ultima_pagina = ultima_pagina(total_itens_por_pagina)
 
 list_xpath = [
     '//*[@id="productTitle"]', #nome do produto
+    '//*[@id="productDetails_techSpec_section_1"]/tbody/tr[1]/td', # fabricante
+    '//*[@id="productDetails_techSpec_section_1"]/tbody/tr[6]/td',
     '//*[@id="corePrice_feature_div"]/div/div/span[1]/span[2]/span[2]', # PREÇO DEZENA
     '//*[@id="corePrice_feature_div"]/div/div/span[1]/span[2]/span[3]', #PREÇO UNIDADE
     '/html/body/div[2]/div/div[5]/div[3]/div[4]/div[3]/div/span[3]/a/span', #avaliações
-    '/html/body/div[2]/div/div[5]/div[3]/div[1]/div[5]/div[2]/div/div[2]/a/span/span[1]',
+    '/html/body/div[2]/div/div[5]/div[3]/div[1]/div[5]/div[2]/div/div[2]/a/span/span[1]' #ofertas
 ]
 
-colunas = ['NomeProduto', 'Avaliações','Ofertas','Preço', 'URL']
+colunas = ['NomeProduto','Fabricante','Marca','Preço_Dez', 'Preço_Unid','Avaliações','Ofertas', 'URL']
 
 df = pd.DataFrame(columns=colunas)
 
@@ -85,12 +100,11 @@ def funcListProducts2():
                     drive.find_element(By.XPATH, '//*[@id="search"]/div[1]/div[1]/div/span[1]/div[1]/div[{x}]/div/div/span/div/div/div/div[1]/div/div[2]/div/span/a/div'.format(x=x)).click()  # IMAGEM FOTO
                     break
                 except:
-                    print(f"Tentativa de leitura: {i + 1}")
+                    #print(f"Tentativa de leitura: {i + 1}")
                     time.sleep(1)
 
             time.sleep(2)
             #listaConfirmada = check_xpath_exists(driver=drive, listXpath=list_xpath)
-            time.sleep(1)
             resultado = []
 
             for i, xpath in enumerate(list_xpath):
@@ -112,30 +126,31 @@ def funcListProducts2():
 
             #print(f"dados inicial: {resultado}")
             time.sleep(1)
-            resultadoAtualizado = atulizaPreco(resultado)
-            resultadoAtualizado.append(drive.current_url)
+            #resultadoAtualizado = atulizaPreco(resultado)
+            resultado.append(drive.current_url)
             #print(f"dados corrigido: {resultadoAtualizado}")
 
             # Verificar se os dados estão completos e válidos
-            if len(resultadoAtualizado) != len(colunas):
-                print("Erro: número de colunas não corresponde.")
+            if len(resultado) != len(colunas):
+                #print("Erro: número de colunas não corresponde.")
                 continue
 
 
             # Verifique se cada valor na linha está correto
-            for i, value in enumerate(resultadoAtualizado):
-                if not value:
-                    print(f"Aviso: Coluna {colunas[i]} está vazia ou incorreta.")
+            # for i, value in enumerate(resultado):
+            #     if not value:
+            #         print(f"Aviso: Coluna {colunas[i]} está vazia ou incorreta.")
 
-            df_temp = pd.DataFrame([resultadoAtualizado], columns=colunas)
+            df_temp = pd.DataFrame([resultado], columns=colunas)
             time.sleep(0.5)
 
             # Verificar conteúdo do df_temp antes de concatenação
             #print(f"df_temp:\n{df_temp}")
 
             df = pd.concat([df, df_temp], ignore_index=True)
+
             time.sleep(0.5)
-            print(f"DATAFRAME:\n{df}")
+            #print(f"DATAFRAME:\n{df}")
             drive.back()
         except NoSuchElementException:
             print('houve um erro...')
@@ -167,7 +182,7 @@ def funcListProducts():
                     resultado.insert(i, dado)
                 elif(xpath == ''):
                     resultado.insert(i, '')
-            print(f"dados inicial: {resultado}")
+            #print(f"dados inicial: {resultado}")
 
             time.sleep(1)
             resultadoAtualizado = atulizaPreco(resultado)
@@ -181,9 +196,11 @@ def funcListProducts():
             drive.back()
         except NoSuchElementException:
             print('houve um erro...')
-        
 
-for i in range(ultima_pagina):
+print('Agora está tudo certo! Vamos começar...') 
+print(f'Nome do vendedor: {nome_loja}')
+for i in tqdm(range(ultima_pagina),               desc="Loading…", 
+               ascii=False, ncols=75):
     for tentativa in range(5):
         try:
             funcListProducts2()
@@ -191,10 +208,32 @@ for i in range(ultima_pagina):
             time.sleep(5)
             break
         except:
-            print(f"Tentativa: {tentativa + 1}")
+            #print(f"Tentativa: {tentativa + 1}")
             time.sleep(1)
+    time.sleep(0.01)
+
+print('Terminou. Abre a arquivo excel na pasta do programa. Boa sorte!')
+
+
+
+# for i in range(ultima_pagina):
+#     for tentativa in range(5):
+#         try:
+#             funcListProducts2()
+#             drive.find_element(By.XPATH,'/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[18]/div/div/span/a[3]').click()
+#             time.sleep(5)
+#             break
+#         except:
+#             print(f"Tentativa: {tentativa + 1}")
+#             time.sleep(1)
     
 
+df['preco'] = df['Preço_Dez'].astype(str)+','+ df['Preço_Unid'].astype(str)
+#df['preco'] = df['preco'].astype(float)
+df.drop(['Preço_Dez', 'Preço_Unid'], axis=1, inplace=True)
+colunas = df.columns.tolist()
+colunas.insert(2, colunas.pop(colunas.index('preco')))
+df = df[colunas]
 
 
-df.to_excel(f"{nome_arquivo}-KarinaIamadaMultimarcas.xlsx", index=False)
+df.to_excel(f"{nome_arquivo}-{nome_loja}.xlsx", index=False)
